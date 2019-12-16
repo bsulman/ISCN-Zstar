@@ -1,0 +1,30 @@
+Code and data files for ISCN depth profile (Z*) analysis
+
+This code is meant to run on ISCN Gen3 data files: https://iscn.fluxdata.org/data/access-data/database-reports/
+You will need to download these files for the scripts to function.
+Please see the ISCN data use policy
+
+NOTE: You will need to update data directories in the scripts for them to work on your machine
+
+Python scripts were tested on a Mac using python 3.7.
+Dependencies include:
+pandas 0.25.0
+numpy 1.16.4
+matplotlib 3.1.1
+cartopy 0.17.0
+statsmodels 0.10.2
+
+
+Code files:
+zstarscript_ISCN_Gen3.py: Calculates the depth parameters (Z*, Cs, Zmax, Cdeep) on the raw ISCN Gen3 data
+zstar_analysis.py: Generates plots and general analysis for the manuscript based on the profile fitting results and associated data
+Sulman stats.R: Additional stats on the analysis
+
+Data files:
+piecewise_Cstock_combined.csv: Depth profile fitting results using SOC density (mass C per unit volume) data in each layer
+piecewise_pctC_combine.csv: Depth profile fitting results using SOC concentration (%C) data in each layer
+profiledata_gen3_with_climate_and_nlcd.csv: Profile-level ISCN data, including land cover and climate data
+profiledata_stats_bins_Ap_20190624.csv: Profile-level ISCN data, with results of depth profile analysis (Z* stats, binning, etc) included. 
+                                        *** This dataset has been filtered to only include profiles with Z* fits with R2>0.9 ***
+                                        
+                                        
