@@ -14,13 +14,13 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import pylab
-from numba import autojit
+from numba import jit
 
 import pandas as pd
 
 import time
 
-@autojit
+@jit
 def expfunc(x, K, I):
     '''
     Z* function. not forcing through Csurf.
@@ -38,7 +38,7 @@ def linfunc(x, a, b):
     '''
     return a + b*x
 
-@autojit
+@jit
 def piecewise_func(z,inv_zstar,csurf,zmax):
     '''
     Z* function. not forcing through Csurf.
@@ -55,7 +55,7 @@ def piecewise_func(z,inv_zstar,csurf,zmax):
 
 failcodes={-1:'No mineral soil',-2:'Less than 3 layers',-3:'No available layers',-999:'Optimization failed'}
 
-# @autojit
+#@jit
 def zstarfunc(depth, pctC, Cvalues, fit_type = 'exp', org_C_cutoff=20.0):
     '''
     Pass in observations of each profile, fit func, return yhat (if plott=False), zstar, stat
@@ -251,7 +251,7 @@ def mainrun(layerdata, profdata, uniqprofname, plott=False, ppf=9,maxprofiles=10
                 if do_C_stock:
                     # Sometimes the top layer did not have data but lower layers did
                     # Fix so it uses layers that had data used for the calculation
-                    out_method.append(layerdata.loc[profname]['soc_carbon_flag'].iloc[0])
+                    out_method.append(layerdata.loc[profname].dropna(subset=['soc (g cm-2)'])['soc_carbon_flag'].iloc[0])
                 else:
                     out_method.append(C_measure)
                 out_name.append(profname)
@@ -260,10 +260,10 @@ def mainrun(layerdata, profdata, uniqprofname, plott=False, ppf=9,maxprofiles=10
                 else:
                     n_Ctot=n_Ctot+1
             if isinstance(res, int):
-                failed.append([profname,res])
+                failed.append([profname,res,failures[res]])
                 # print 'Fit number %d, profile name %s [FAILED: %s]'%(profid,profname,failures[res])
         else:
-            failed.append([profname,norawly])
+            failed.append([profname,norawly,failures[norawly]])
             # print 'Fit number %d, profile name %s [FAILED: %s]'%(profid,profname,failures[norawly])
         if profid%100==0 and profid>0:
             tt=time.clock()
@@ -294,7 +294,7 @@ def mainrun(layerdata, profdata, uniqprofname, plott=False, ppf=9,maxprofiles=10
         },index=out_name)
     failed_array=np.asarray(failed)
     if len(failed_array)>0:
-        return out_df, pd.DataFrame({'failcode':failed_array[:,1]},index=failed_array[:,0])
+        return out_df, pd.DataFrame({'failcode':failed_array[:,1],'reason':failed_array[:,2]},index=failed_array[:,0])
     else:
         return out_df,pd.DataFrame({'failcode':failed_array})
 
@@ -311,35 +311,35 @@ if __name__ == "__main__":
     dataset_all=profdata['dataset_name_soc']
     profdata=profdata[(dataset_all=='ISCN SOC stock computation')|(dataset_all=='ISCN No SOC stock computation')]
 
-    do_stock=True
-    fit_type='piecewise'
+    for do_stock in [True,False]:
+        fit_type='piecewise'
 
-    for num in [1,2,3,4]:
-        layerfn = '../ISCN-data/ISCN_ALL_DATA_LAYER_C%d_1-1.csv'%num
-        layerdata   = pd.read_csv(layerfn,encoding='iso-8859-1')
-        layerdata.set_index('profile_name',inplace=True)
-        dataset_all=layerdata['dataset_name_soc']
-        layerdata=layerdata[(dataset_all=='ISCN SOC stock computation')|(dataset_all=='ISCN No SOC stock computation')]
-        uniqprofname = layerdata.index.unique()
+        for num in [1,2,3,4]:
+            layerfn = '../ISCN-data/ISCN_ALL_DATA_LAYER_C%d_1-1.csv'%num
+            layerdata   = pd.read_csv(layerfn,encoding='iso-8859-1')
+            layerdata.set_index('profile_name',inplace=True)
+            dataset_all=layerdata['dataset_name_soc']
+            layerdata=layerdata[(dataset_all=='ISCN SOC stock computation')|(dataset_all=='ISCN No SOC stock computation')]
+            uniqprofname = layerdata.index.unique()
 
-        print ('Finished reading datasets for segment C%d'%num)
-        if do_stock:
-            print ("Using C stocks")
-        else:
-            print ("Using percent C")
+            print ('Finished reading datasets for segment C%d'%num)
+            if do_stock:
+                print ("Using C stocks")
+            else:
+                print ("Using percent C")
 
-        maxruns = 1000000
+            maxruns = 1000000
 
-        # run exp fit
-        out_df, failed_exp = mainrun(layerdata, profdata, uniqprofname, plott=False, fit_type=fit_type, maxprofiles=maxruns, do_C_stock=do_stock)
-        # np.savez('out_exp_C1',out_stat_exp=out_stat_exp, out_prop_exp=out_prop_exp, failed_exp=failed_exp,out_method=out_method)
+            # run exp fit
+            out_df, failed_exp = mainrun(layerdata, profdata, uniqprofname, plott=False, fit_type=fit_type, maxprofiles=maxruns, do_C_stock=do_stock)
+            # np.savez('out_exp_C1',out_stat_exp=out_stat_exp, out_prop_exp=out_prop_exp, failed_exp=failed_exp,out_method=out_method)
 
-        if do_stock:
-            out_df.to_csv('../Zstar_params_output/C%d_Cstock_%s.csv'%(num,fit_type),index_label='profile_name')
-            failed_exp.to_csv('../Zstar_params_output/C%d_Cstock_%s_failed.csv'%(num,fit_type),index_label='profile_name')
-        else:
-            out_df.to_csv('../Zstar_params_output/C%d_pctC_%s.csv'%(num,fit_type),index_label='profile_name')
-            failed_exp.to_csv('../Zstar_params_output/C%d_pctC_%s_failed.csv'%(num,fit_type),index_label='profile_name')
+            if do_stock:
+                out_df.to_csv('../Zstar_params_output/C%d_Cstock_%s.csv'%(num,fit_type),index_label='profile_name')
+                failed_exp.to_csv('../Zstar_params_output/C%d_Cstock_%s_failed.csv'%(num,fit_type),index_label='profile_name')
+            else:
+                out_df.to_csv('../Zstar_params_output/C%d_pctC_%s.csv'%(num,fit_type),index_label='profile_name')
+                failed_exp.to_csv('../Zstar_params_output/C%d_pctC_%s_failed.csv'%(num,fit_type),index_label='profile_name')
 
 
     #
